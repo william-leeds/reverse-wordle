@@ -485,6 +485,15 @@ function init() {
 // ——— Creator ———
 function initCreator() {
   let numGuesses = 4;
+  let savedAnswer = '';
+  let savedGuesses = [];
+
+  function saveState() {
+    const answerInput = document.getElementById('answer-input');
+    const guessInputs = document.querySelectorAll('.guess-input');
+    if (answerInput) savedAnswer = answerInput.value;
+    if (guessInputs.length) savedGuesses = Array.from(guessInputs).map(el => el.value);
+  }
 
   function render() {
     app.innerHTML = `
@@ -500,7 +509,7 @@ function initCreator() {
       </div>
       <div class="form-section">
         <label>Today's Wordle Answer</label>
-        <input id="answer-input" maxlength="5" placeholder="e.g. CRANE" autocomplete="off" />
+        <input id="answer-input" maxlength="5" placeholder="e.g. CRANE" autocomplete="off" value="${savedAnswer}" />
       </div>
       <div class="form-section">
         <label>Your Guesses (in order)</label>
@@ -508,7 +517,7 @@ function initCreator() {
           ${Array.from({ length: numGuesses }, (_, i) => `
             <div class="guess-row">
               <span>${i + 1}.</span>
-              <input class="guess-input" maxlength="5" placeholder="Guess ${i + 1}" autocomplete="off" data-idx="${i}" />
+              <input class="guess-input" maxlength="5" placeholder="Guess ${i + 1}" autocomplete="off" data-idx="${i}" value="${savedGuesses[i] || ''}" />
             </div>
           `).join('')}
         </div>
@@ -521,8 +530,8 @@ function initCreator() {
       <button class="btn-primary" id="create-btn" disabled>Create Challenge</button>
     `;
 
-    document.getElementById('add-row')?.addEventListener('click', () => { numGuesses++; render(); });
-    document.getElementById('remove-row')?.addEventListener('click', () => { numGuesses--; render(); });
+    document.getElementById('add-row')?.addEventListener('click', () => { saveState(); numGuesses++; render(); });
+    document.getElementById('remove-row')?.addEventListener('click', () => { saveState(); numGuesses--; render(); });
 
     const answerInput = document.getElementById('answer-input');
     const guessInputs = document.querySelectorAll('.guess-input');
