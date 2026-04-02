@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reverse Wordle</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: #121213;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 24px 0 4px;
+  }
+
+  .subtitle {
+    color: #818384;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 500px;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Grid */
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 16px 0;
+  }
+
+  .row {
+    display: flex;
+    gap: 5px;
+  }
+
+  .cell {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 2px solid #3a3a3c;
+    user-select: none;
+  }
+
+  .cell.green  { background: #538d4e; border-color: #538d4e; }
+  .cell.yellow { background: #b59f3b; border-color: #b59f3b; }
+  .cell.gray   { background: #3a3a3c; border-color: #3a3a3c; }
+  .cell.empty  { border-color: #3a3a3c; }
+  .cell.active { border-color: #565758; }
+  .cell.revealed { animation: flip 0.4s ease; }
+
+  @keyframes flip {
+    0%   { transform: scaleY(1); }
+    50%  { transform: scaleY(0); }
+    100% { transform: scaleY(1); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+  }
+
+  .row.shake { animation: shake 0.4s ease; }
+
+  /* Answer display */
+  .answer-display {
+    font-size: 1.1rem;
+    margin: 8px 0 4px;
+    color: #818384;
+  }
+
+  .answer-display strong {
+    color: #538d4e;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* Creator form */
+  .form-section {
+    width: 100%;
+    margin: 12px 0;
+  }
+
+  .form-section label {
+    display: block;
+    font-size: 0.85rem;
+    color: #818384;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .form-section input {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+    background: #1a1a1b;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+  }
+
+  .form-section input:focus {
+    border-color: #565758;
+  }
+
+  .form-section input::placeholder {
+    text-transform: none;
+    letter-spacing: normal;
+    color: #555;
+  }
+
+  .guess-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .guess-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .guess-row span {
+    color: #818384;
+    font-size: 0.8rem;
+    min-width: 16px;
+  }
+
+  .guess-row input {
+    flex: 1;
+  }
+
+  button {
+    padding: 14px 32px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 16px 0;
+    transition: opacity 0.2s;
+  }
+
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary { background: #538d4e; color: #fff; }
+  .btn-secondary { background: #3a3a3c; color: #fff; }
+
+  .add-remove-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .add-remove-row button {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    margin: 0;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    top: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 100;
+  }
+
+  .toast {
+    background: #fff;
+    color: #121213;
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Keyboard */
+  .keyboard {
+    margin: 12px 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .kb-row {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+  }
+
+  .key {
+    height: 52px;
+    min-width: 32px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: #818384;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    transition: background 0.1s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .key:active { opacity: 0.7; }
+  .key.wide { min-width: 56px; font-size: 0.75rem; }
+
+  /* Score */
+  .score-section {
+    text-align: center;
+    margin: 16px 0;
+  }
+
+  .score-section h2 {
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+    font-size: 0.95rem;
+  }
+
+  .score-row .label {
+    color: #818384;
+    min-width: 90px;
+    text-align: right;
+  }
+
+  .exact { color: #538d4e; }
+  .pattern { color: #b59f3b; }
+  .miss { color: #3a3a3c; }
+
+  .result-comparison {
+    margin: 16px 0;
+    width: 100%;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin: 6px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .result-row .arrow {
+    color: #818384;
+    font-size: 0.8rem;
+  }
+
+  .share-result {
+    margin: 8px 0 24px;
+  }
+
+  /* Link section */
+  .link-section {
+    width: 100%;
+    text-align: center;
+    margin: 12px 0 24px;
+  }
+
+  .link-box {
+    background: #1a1a1b;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    padding: 12px;
+    word-break: break-all;
+    font-size: 0.85rem;
+    color: #818384;
+    margin: 8px 0;
+  }
+
+  /* Current row indicator */
+  .row-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #818384;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  .row-indicator .arrow-marker {
+    color: #538d4e;
+  }
+
+  /* Responsive */
+  @media (max-width: 400px) {
+    .cell { width: 48px; height: 48px; font-size: 1.5rem; }
+    .key { height: 46px; min-width: 26px; font-size: 0.75rem; }
+    .key.wide { min-width: 46px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Reverse Wordle</h1>
+<p class="subtitle">Guess what words they played</p>
+
+<div class="container" id="app"></div>
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ——— Wordle color logic ———
+function computeColors(guess, answer) {
+  const result = ['gray', 'gray', 'gray', 'gray', 'gray'];
+  const answerArr = answer.split('');
+  const guessArr = guess.split('');
+  const used = [false, false, false, false, false];
+
+  // Greens first
+  for (let i = 0; i < 5; i++) {
+    if (guessArr[i] === answerArr[i]) {
+      result[i] = 'green';
+      used[i] = true;
+      guessArr[i] = null;
+    }
+  }
+
+  // Yellows
+  for (let i = 0; i < 5; i++) {
+    if (guessArr[i] === null) continue;
+    for (let j = 0; j < 5; j++) {
+      if (!used[j] && guessArr[i] === answerArr[j]) {
+        result[i] = 'yellow';
+        used[j] = true;
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+function colorsMatch(a, b) {
+  return a.every((c, i) => c === b[i]);
+}
+
+// ——— Encoding ———
+function encodeGame(answer, guesses) {
+  const data = JSON.stringify({ a: answer, g: guesses });
+  return btoa(unescape(encodeURIComponent(data)));
+}
+
+function decodeGame(hash) {
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(hash))));
+    return { answer: data.a.toLowerCase(), guesses: data.g.map(g => g.toLowerCase()) };
+  } catch {
+    return null;
+  }
+}
+
+// ——— Toast ———
+function showToast(msg, duration = 1500) {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ——— App ———
+const app = document.getElementById('app');
+
+function getHash() {
+  return window.location.hash.slice(1);
+}
+
+function init() {
+  const hash = getHash();
+  if (hash) {
+    const game = decodeGame(hash);
+    if (game) {
+      initSolver(game);
+    } else {
+      showToast('Invalid game link');
+      initCreator();
+    }
+  } else {
+    initCreator();
+  }
+}
+
+// ——— Creator ———
+function initCreator() {
+  let numGuesses = 4;
+
+  function render() {
+    app.innerHTML = `
+      <div class="form-section">
+        <label>Today's Wordle Answer</label>
+        <input id="answer-input" maxlength="5" placeholder="e.g. CRANE" autocomplete="off" />
+      </div>
+      <div class="form-section">
+        <label>Your Guesses (in order)</label>
+        <div class="guess-inputs" id="guess-inputs">
+          ${Array.from({ length: numGuesses }, (_, i) => `
+            <div class="guess-row">
+              <span>${i + 1}.</span>
+              <input class="guess-input" maxlength="5" placeholder="Guess ${i + 1}" autocomplete="off" data-idx="${i}" />
+            </div>
+          `).join('')}
+        </div>
+        <div class="add-remove-row">
+          ${numGuesses < 6 ? '<button class="btn-secondary" id="add-row">+ Row</button>' : ''}
+          ${numGuesses > 2 ? '<button class="btn-secondary" id="remove-row">- Row</button>' : ''}
+        </div>
+      </div>
+      <div id="preview-grid"></div>
+      <button class="btn-primary" id="create-btn" disabled>Create Challenge</button>
+    `;
+
+    document.getElementById('add-row')?.addEventListener('click', () => { numGuesses++; render(); });
+    document.getElementById('remove-row')?.addEventListener('click', () => { numGuesses--; render(); });
+
+    const answerInput = document.getElementById('answer-input');
+    const guessInputs = document.querySelectorAll('.guess-input');
+    const createBtn = document.getElementById('create-btn');
+    const previewGrid = document.getElementById('preview-grid');
+
+    function updatePreview() {
+      const answer = answerInput.value.toLowerCase().trim();
+      const guesses = Array.from(guessInputs).map(el => el.value.toLowerCase().trim());
+      const allFilled = answer.length === 5 && guesses.every(g => g.length === 5);
+
+      createBtn.disabled = !allFilled;
+
+      if (answer.length === 5 && guesses.some(g => g.length === 5)) {
+        let html = '<div class="grid">';
+        for (const guess of guesses) {
+          html += '<div class="row">';
+          if (guess.length === 5) {
+            const colors = computeColors(guess, answer);
+            for (let i = 0; i < 5; i++) {
+              html += `<div class="cell ${colors[i]}">${guess[i]}</div>`;
+            }
+          } else {
+            for (let i = 0; i < 5; i++) {
+              html += `<div class="cell empty"></div>`;
+            }
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+        previewGrid.innerHTML = html;
+      } else {
+        previewGrid.innerHTML = '';
+      }
+    }
+
+    answerInput.addEventListener('input', updatePreview);
+    guessInputs.forEach(el => el.addEventListener('input', updatePreview));
+
+    // Auto-advance to next input
+    answerInput.addEventListener('input', () => {
+      if (answerInput.value.length === 5) guessInputs[0]?.focus();
+    });
+    guessInputs.forEach((el, i) => {
+      el.addEventListener('input', () => {
+        if (el.value.length === 5 && i < guessInputs.length - 1) {
+          guessInputs[i + 1]?.focus();
+        }
+      });
+    });
+
+    createBtn.addEventListener('click', () => {
+      const answer = answerInput.value.toLowerCase().trim();
+      const guesses = Array.from(guessInputs).map(el => el.value.toLowerCase().trim());
+
+      if (answer.length !== 5 || guesses.some(g => g.length !== 5)) {
+        showToast('All words must be 5 letters');
+        return;
+      }
+
+      // Check last guess is the answer
+      if (guesses[guesses.length - 1] !== answer) {
+        showToast('Last guess should be the answer!');
+        return;
+      }
+
+      const encoded = encodeGame(answer, guesses);
+      const url = window.location.origin + window.location.pathname + '#' + encoded;
+
+      showCreatedLink(url, answer, guesses);
+    });
+  }
+
+  render();
+}
+
+function showCreatedLink(url, answer, guesses) {
+  // Build grid emojis for sharing
+  let emojiGrid = '';
+  for (const guess of guesses) {
+    const colors = computeColors(guess, answer);
+    emojiGrid += colors.map(c => c === 'green' ? '🟩' : c === 'yellow' ? '🟨' : '⬛').join('') + '\n';
+  }
+
+  app.innerHTML = `
+    <div style="margin-top: 16px; text-align: center;">
+      <p style="color: #538d4e; font-weight: 700; font-size: 1.1rem;">Challenge Created!</p>
+      <p style="color: #818384; margin-top: 8px;">Send this link to your group chat:</p>
+      <div class="link-box" id="link-box">${url}</div>
+      <button class="btn-primary" id="copy-btn">Copy Link</button>
+      <button class="btn-secondary" id="new-btn">Create Another</button>
+    </div>
+  `;
+
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(url).then(() => showToast('Copied!'));
+  });
+
+  document.getElementById('new-btn').addEventListener('click', () => {
+    window.location.hash = '';
+    initCreator();
+  });
+}
+
+// ——— Solver ———
+function initSolver({ answer, guesses }) {
+  const targetGridColors = guesses.map(g => computeColors(g, answer));
+  const totalRows = guesses.length - 1; // Skip last row (it's the answer)
+  let currentRow = 0;
+  let currentGuess = '';
+  let playerGuesses = []; // what the solver has guessed
+  let results = []; // 'exact', 'pattern', stored per row
+  let gameOver = false;
+
+  function renderGrid() {
+    let html = `
+      <div class="answer-display">The answer was <strong>${answer}</strong></div>
+      <div class="grid">
+    `;
+
+    for (let r = 0; r < guesses.length; r++) {
+      html += '<div class="row">';
+
+      if (r < totalRows) {
+        // Solvable rows
+        if (r < currentRow) {
+          // Already solved — show the player's guess with the target colors
+          const guess = playerGuesses[r];
+          const colors = targetGridColors[r];
+          for (let i = 0; i < 5; i++) {
+            html += `<div class="cell ${colors[i]}">${guess[i]}</div>`;
+          }
+        } else if (r === currentRow && !gameOver) {
+          // Active row
+          const colors = targetGridColors[r];
+          for (let i = 0; i < 5; i++) {
+            const letter = currentGuess[i] || '';
+            html += `<div class="cell ${colors[i]} ${letter ? '' : 'active'}">${letter}</div>`;
+          }
+        } else {
+          // Future rows — show colors only
+          const colors = targetGridColors[r];
+          for (let i = 0; i < 5; i++) {
+            html += `<div class="cell ${colors[i]}"></div>`;
+          }
+        }
+      } else {
+        // Last row is the answer — always show it
+        for (let i = 0; i < 5; i++) {
+          html += `<div class="cell green">${answer[i]}</div>`;
+        }
+      }
+
+      html += '</div>';
+    }
+
+    html += '</div>';
+
+    if (!gameOver && currentRow < totalRows) {
+      html += `<div class="row-indicator">Guessing row <strong>${currentRow + 1}</strong> of ${totalRows}</div>`;
+    }
+
+    return html;
+  }
+
+  function renderKeyboard() {
+    const rows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+    let html = '<div class="keyboard">';
+
+    for (let r = 0; r < rows.length; r++) {
+      html += '<div class="kb-row">';
+      if (r === 2) html += '<button class="key wide" data-key="enter">Enter</button>';
+      for (const ch of rows[r]) {
+        html += `<button class="key" data-key="${ch}">${ch}</button>`;
+      }
+      if (r === 2) html += '<button class="key wide" data-key="backspace">⌫</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderResults() {
+    let html = '<div class="score-section"><h2>Results</h2>';
+
+    let exactCount = 0, patternCount = 0;
+    results.forEach(r => { if (r === 'exact') exactCount++; else if (r === 'pattern') patternCount++; });
+
+    html += `<p style="margin: 8px 0; font-size: 1.2rem;">
+      <span class="exact">${exactCount * 3}</span> pts
+      <span style="color:#818384;"> — ${exactCount} exact, ${patternCount} pattern match</span>
+    </p>`;
+
+    html += '<div class="result-comparison">';
+    for (let i = 0; i < totalRows; i++) {
+      const isExact = results[i] === 'exact';
+      html += `<div class="result-row">
+        <span style="color: ${isExact ? '#538d4e' : '#b59f3b'}">${playerGuesses[i]}</span>
+        <span class="arrow">${isExact ? '✓' : '→'}</span>
+        <span style="color: ${isExact ? '#538d4e' : '#818384'}">${guesses[i]}</span>
+      </div>`;
+    }
+    html += '</div>';
+
+    // Share button
+    let shareText = `Reverse Wordle\n`;
+    shareText += `Answer: ${answer.toUpperCase()}\n`;
+    shareText += `Score: ${exactCount * 3 + patternCount} pts (${exactCount} exact, ${patternCount} pattern)\n`;
+    for (let i = 0; i < totalRows; i++) {
+      const colors = targetGridColors[i];
+      shareText += colors.map(c => c === 'green' ? '🟩' : c === 'yellow' ? '🟨' : '⬛').join('');
+      shareText += results[i] === 'exact' ? ' ✓' : ' ~';
+      shareText += '\n';
+    }
+    shareText += '🟩🟩🟩🟩🟩 ✓';
+
+    html += `<button class="btn-primary share-result" id="share-result-btn">Share Result</button>`;
+    html += `<button class="btn-secondary" id="play-again-btn">Play Another</button>`;
+    html += '</div>';
+
+    app.dataset.shareText = shareText;
+    return html;
+  }
+
+  function render() {
+    let html = renderGrid();
+
+    if (gameOver) {
+      html += renderResults();
+    } else {
+      html += renderKeyboard();
+    }
+
+    app.innerHTML = html;
+
+    // Bind keyboard
+    if (!gameOver) {
+      app.querySelectorAll('.key').forEach(key => {
+        key.addEventListener('click', () => handleKey(key.dataset.key));
+      });
+    }
+
+    document.getElementById('share-result-btn')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(app.dataset.shareText).then(() => showToast('Copied!'));
+    });
+
+    document.getElementById('play-again-btn')?.addEventListener('click', () => {
+      window.location.hash = '';
+      window.location.reload();
+    });
+  }
+
+  function handleKey(key) {
+    if (gameOver) return;
+
+    if (key === 'backspace') {
+      currentGuess = currentGuess.slice(0, -1);
+      render();
+    } else if (key === 'enter') {
+      submitGuess();
+    } else if (key.length === 1 && /[a-z]/.test(key) && currentGuess.length < 5) {
+      currentGuess += key;
+      render();
+    }
+  }
+
+  function submitGuess() {
+    if (currentGuess.length !== 5) {
+      showToast('Not enough letters');
+      return;
+    }
+
+    // Check if this guess produces the right color pattern
+    const guessColors = computeColors(currentGuess, answer);
+    const targetColors = targetGridColors[currentRow];
+
+    if (!colorsMatch(guessColors, targetColors)) {
+      showToast("Doesn't match the pattern!");
+      // Shake the row
+      const rows = app.querySelectorAll('.grid .row');
+      if (rows[currentRow]) {
+        rows[currentRow].classList.add('shake');
+        setTimeout(() => rows[currentRow].classList.remove('shake'), 400);
+      }
+      return;
+    }
+
+    // Valid guess
+    playerGuesses.push(currentGuess);
+    const isExact = currentGuess === guesses[currentRow];
+    results.push(isExact ? 'exact' : 'pattern');
+
+    if (isExact) {
+      showToast('Exact match! +3 pts', 1200);
+    } else {
+      showToast('Pattern match +1 pt', 1200);
+    }
+
+    currentRow++;
+    currentGuess = '';
+
+    if (currentRow >= totalRows) {
+      gameOver = true;
+    }
+
+    render();
+  }
+
+  // Physical keyboard
+  document.addEventListener('keydown', (e) => {
+    if (gameOver) return;
+    if (e.key === 'Enter') handleKey('enter');
+    else if (e.key === 'Backspace') handleKey('backspace');
+    else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toLowerCase());
+  });
+
+  render();
+}
+
+// ——— Start ———
+init();
+</script>
+</body>
+</html>
