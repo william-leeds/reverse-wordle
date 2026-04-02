@@ -538,26 +538,31 @@ function initCreator() {
     const createBtn = document.getElementById('create-btn');
     const previewGrid = document.getElementById('preview-grid');
 
+    function getFilledGuesses() {
+      const all = Array.from(guessInputs).map(el => el.value.toLowerCase().trim());
+      // Take all consecutive filled rows from the top
+      const filled = [];
+      for (const g of all) {
+        if (g.length === 5) filled.push(g);
+        else break;
+      }
+      return filled;
+    }
+
     function updatePreview() {
       const answer = answerInput.value.toLowerCase().trim();
-      const guesses = Array.from(guessInputs).map(el => el.value.toLowerCase().trim());
-      const allFilled = answer.length === 5 && guesses.every(g => g.length === 5);
+      const filled = getFilledGuesses();
+      const ready = answer.length === 5 && filled.length >= 2 && filled[filled.length - 1] === answer;
 
-      createBtn.disabled = !allFilled;
+      createBtn.disabled = !ready;
 
-      if (answer.length === 5 && guesses.some(g => g.length === 5)) {
+      if (answer.length === 5 && filled.length > 0) {
         let html = '<div class="grid">';
-        for (const guess of guesses) {
+        for (const guess of filled) {
           html += '<div class="row">';
-          if (guess.length === 5) {
-            const colors = computeColors(guess, answer);
-            for (let i = 0; i < 5; i++) {
-              html += `<div class="cell ${colors[i]}">${guess[i]}</div>`;
-            }
-          } else {
-            for (let i = 0; i < 5; i++) {
-              html += `<div class="cell empty"></div>`;
-            }
+          const colors = computeColors(guess, answer);
+          for (let i = 0; i < 5; i++) {
+            html += `<div class="cell ${colors[i]}">${guess[i]}</div>`;
           }
           html += '</div>';
         }
@@ -585,16 +590,15 @@ function initCreator() {
 
     createBtn.addEventListener('click', () => {
       const answer = answerInput.value.toLowerCase().trim();
-      const guesses = Array.from(guessInputs).map(el => el.value.toLowerCase().trim());
+      const guesses = getFilledGuesses();
 
-      if (answer.length !== 5 || guesses.some(g => g.length !== 5)) {
-        showToast('All words must be 5 letters');
+      if (answer.length !== 5 || guesses.length < 2) {
+        showToast('Need the answer and at least 2 guesses');
         return;
       }
 
-      // Check last guess is the answer
       if (guesses[guesses.length - 1] !== answer) {
-        showToast('Last guess should be the answer!');
+        showToast('Last filled guess should be the answer!');
         return;
       }
 
