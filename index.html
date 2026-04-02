@@ -347,6 +347,42 @@
     color: #538d4e;
   }
 
+  /* How to play */
+  .how-to-play {
+    width: 100%;
+    background: #1a1a1b;
+    border: 1px solid #3a3a3c;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 0 0 20px;
+  }
+
+  .how-to-play h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #818384;
+    margin-bottom: 10px;
+  }
+
+  .how-to-play ol, .how-to-play ul {
+    padding-left: 20px;
+    color: #d7dadc;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .how-to-play li { margin-bottom: 4px; }
+
+  .how-to-play .scoring {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #818384;
+  }
+
+  .how-to-play .scoring span.exact { color: #538d4e; }
+  .how-to-play .scoring span.pattern { color: #b59f3b; }
+
   /* Responsive */
   @media (max-width: 400px) {
     .cell { width: 48px; height: 48px; font-size: 1.5rem; }
@@ -452,6 +488,16 @@ function initCreator() {
 
   function render() {
     app.innerHTML = `
+      <div class="how-to-play">
+        <h2>How it works</h2>
+        <ol>
+          <li>Play today's <a href="https://www.nytimes.com/games/wordle" target="_blank" style="color:#538d4e;">Wordle</a> like normal</li>
+          <li>Enter the answer and your guesses below</li>
+          <li>Hit <strong>Create Challenge</strong> — you'll get a link</li>
+          <li>Send the link to your group chat</li>
+          <li>Your friends open it and try to guess what words you played, using only the color pattern and the answer</li>
+        </ol>
+      </div>
       <div class="form-section">
         <label>Today's Wordle Answer</label>
         <input id="answer-input" maxlength="5" placeholder="e.g. CRANE" autocomplete="off" />
@@ -592,8 +638,27 @@ function initSolver({ answer, guesses }) {
   let gameOver = false;
 
   function renderGrid() {
-    let html = `
-      <div class="answer-display">The answer was <strong>${answer}</strong></div>
+    let html = '';
+
+    if (currentRow === 0 && !gameOver) {
+      html += `
+        <div class="how-to-play">
+          <h2>Your challenge</h2>
+          <ul>
+            <li>Someone played Wordle and got the pattern below</li>
+            <li>The answer was <strong style="color:#538d4e;text-transform:uppercase;">${answer}</strong></li>
+            <li>Guess what words they played, row by row</li>
+            <li>Your guess must produce the same color pattern</li>
+          </ul>
+          <div class="scoring">
+            Scoring: <span class="exact">Exact word = 3 pts</span> · <span class="pattern">Right pattern, wrong word = 1 pt</span>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="answer-display">Answer: <strong>${answer}</strong></div>
       <div class="grid">
     `;
 
@@ -606,9 +671,11 @@ function initSolver({ answer, guesses }) {
           // Already solved — show the player's guess with the target colors
           const guess = playerGuesses[r];
           const colors = targetGridColors[r];
+          const isExact = results[r] === 'exact';
           for (let i = 0; i < 5; i++) {
             html += `<div class="cell ${colors[i]}">${guess[i]}</div>`;
           }
+          html += `<span style="margin-left:8px;font-size:0.8rem;color:${isExact ? '#538d4e' : '#b59f3b'}">${isExact ? '✓ Exact!' : '~ Pattern'}</span>`;
         } else if (r === currentRow && !gameOver) {
           // Active row
           const colors = targetGridColors[r];
