@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reverse Wordle</title>
+<title>Blurtzle</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -393,7 +393,7 @@
 </head>
 <body>
 
-<h1>Reverse Wordle</h1>
+<h1>Blurtzle</h1>
 <p class="subtitle">Guess what words they played</p>
 
 <div class="container" id="app"></div>
@@ -504,7 +504,7 @@ function initCreator() {
           <li>Enter the answer and your guesses below</li>
           <li>Hit <strong>Create Challenge</strong> — you'll get a link</li>
           <li>Send the link to your group chat</li>
-          <li>Your friends open it and try to guess what words you played, using only the color pattern and the answer</li>
+          <li>Your friends see your first word and the color patterns, then try to guess the rest</li>
         </ol>
       </div>
       <div class="form-section">
@@ -644,23 +644,23 @@ function showCreatedLink(url, answer, guesses) {
 function initSolver({ answer, guesses }) {
   const targetGridColors = guesses.map(g => computeColors(g, answer));
   const totalRows = guesses.length - 1; // Skip last row (it's the answer)
-  let currentRow = 0;
+  let currentRow = 1; // Start from row 1; row 0 is given
   let currentGuess = '';
-  let playerGuesses = []; // what the solver has guessed
-  let results = []; // 'exact', 'pattern', stored per row
-  let gameOver = false;
+  let playerGuesses = [guesses[0]]; // First guess is revealed
+  let results = ['exact']; // First row is always exact (given)
+  let gameOver = totalRows <= 1; // Edge case: only 1 solvable row
 
   function renderGrid() {
     let html = '';
 
-    if (currentRow === 0 && !gameOver) {
+    if (currentRow === 1 && !gameOver) {
       html += `
         <div class="how-to-play">
           <h2>Your challenge</h2>
           <ul>
             <li>Someone played Wordle and got the pattern below</li>
             <li>The answer was <strong style="color:#538d4e;text-transform:uppercase;">${answer}</strong></li>
-            <li>Guess what words they played, row by row</li>
+            <li>The first word is given — guess the rest, row by row</li>
             <li>Your guess must produce the same color pattern</li>
           </ul>
           <div class="scoring">
@@ -716,7 +716,7 @@ function initSolver({ answer, guesses }) {
     html += '</div>';
 
     if (!gameOver && currentRow < totalRows) {
-      html += `<div class="row-indicator">Guessing row <strong>${currentRow + 1}</strong> of ${totalRows}</div>`;
+      html += `<div class="row-indicator">Guessing row <strong>${currentRow + 1}</strong> of ${totalRows} (row 1 given)</div>`;
     }
 
     return html;
@@ -743,36 +743,45 @@ function initSolver({ answer, guesses }) {
   function renderResults() {
     let html = '<div class="score-section"><h2>Results</h2>';
 
+    // Score only rows 1+ (row 0 is given)
     let exactCount = 0, patternCount = 0;
-    results.forEach(r => { if (r === 'exact') exactCount++; else if (r === 'pattern') patternCount++; });
+    for (let i = 1; i < results.length; i++) {
+      if (results[i] === 'exact') exactCount++;
+      else if (results[i] === 'pattern') patternCount++;
+    }
 
     html += `<p style="margin: 8px 0; font-size: 1.2rem;">
-      <span class="exact">${exactCount * 3}</span> pts
-      <span style="color:#818384;"> — ${exactCount} exact, ${patternCount} pattern match</span>
+      <span class="exact">${exactCount * 3 + patternCount}</span> pts
+      <span style="color:#818384;"> — ${exactCount} exact, ${patternCount} pattern match (of ${totalRows - 1} guessed)</span>
     </p>`;
 
     html += '<div class="result-comparison">';
     for (let i = 0; i < totalRows; i++) {
       const isExact = results[i] === 'exact';
+      const isGiven = i === 0;
       html += `<div class="result-row">
-        <span style="color: ${isExact ? '#538d4e' : '#b59f3b'}">${playerGuesses[i]}</span>
-        <span class="arrow">${isExact ? '✓' : '→'}</span>
-        <span style="color: ${isExact ? '#538d4e' : '#818384'}">${guesses[i]}</span>
+        <span style="color: ${isGiven ? '#818384' : isExact ? '#538d4e' : '#b59f3b'}">${playerGuesses[i]}</span>
+        <span class="arrow">${isGiven ? '(given)' : isExact ? '✓' : '→'}</span>
+        <span style="color: ${isGiven ? '#818384' : isExact ? '#538d4e' : '#818384'}">${guesses[i]}</span>
       </div>`;
     }
     html += '</div>';
 
-    // Share button
-    let shareText = `Reverse Wordle\n`;
+    // Share button — includes words
+    let shareText = `Blurtzle\n`;
     shareText += `Answer: ${answer.toUpperCase()}\n`;
-    shareText += `Score: ${exactCount * 3 + patternCount} pts (${exactCount} exact, ${patternCount} pattern)\n`;
+    shareText += `Score: ${exactCount * 3 + patternCount} pts (${exactCount} exact, ${patternCount} pattern)\n\n`;
     for (let i = 0; i < totalRows; i++) {
       const colors = targetGridColors[i];
-      shareText += colors.map(c => c === 'green' ? '🟩' : c === 'yellow' ? '🟨' : '⬛').join('');
-      shareText += results[i] === 'exact' ? ' ✓' : ' ~';
-      shareText += '\n';
+      const emoji = colors.map(c => c === 'green' ? '🟩' : c === 'yellow' ? '🟨' : '⬛').join('');
+      if (i === 0) {
+        shareText += `${emoji} ${playerGuesses[i].toUpperCase()} (given)\n`;
+      } else {
+        const marker = results[i] === 'exact' ? '✓' : '~';
+        shareText += `${emoji} ${playerGuesses[i].toUpperCase()} ${marker}\n`;
+      }
     }
-    shareText += '🟩🟩🟩🟩🟩 ✓';
+    shareText += '🟩🟩🟩🟩🟩 ' + answer.toUpperCase() + ' ✓';
 
     html += `<button class="btn-primary share-result" id="share-result-btn">Share Result</button>`;
     html += `<button class="btn-secondary" id="play-again-btn">Play Another</button>`;
